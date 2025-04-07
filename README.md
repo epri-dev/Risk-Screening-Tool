@@ -18,12 +18,12 @@ These instruction will help you to deploy RiSc on a remote/enterpise server and 
 
 	Enter the following command from a terminal/prompt to 'clone' the repo and download it to your computer:
         ```
-        git clone  https://github.com/epri-dev/Climate-RiSc-Tool.git
+        git clone  https://github.com/epri-dev/Risk-Screening-Tool.git
         ```
 	When cloning a repo with 'git clone', if you do not specify a new directory as the last argument (as shown above),
-	it will be named `Climate-RiSc-Tool`. Alternatively, you can specify this and name it as you please. 
+	it will be named `Risk-Screening-Tool`. Alternatively, you can specify this and name it as you please. 
         
-	Note: You can also clone your repo on your local computer and transfer it to the server through a mount or SFTP.
+	Note: Make sure your files have all permissions running `chmod -R a+rwx Risk-Screening-Tool` in your server.
 
 2. #### Pull and load the docker image
 
@@ -39,13 +39,26 @@ These instruction will help you to deploy RiSc on a remote/enterpise server and 
 
 3. #### Run the application
 	
-	Make sure the .env file is available in the application directory. The.env file should contain two variables: DJANGO_KEY and DB_PASSWORD
+	Docker compose file `deft.yml` contain all the required configuration settings to run the containers. However, to run the tool remotly (otherwise comment this line using #) you will have to modify and specify the mount path in the docker compose backend volumes  `<your_mount_path>/input:/code/share` to your own path. 
 
-	Docker compose file `deft.yml` contain all the required configuration settings to run the containers. However, to run the tool from your local laptop (otherwise comment this line using #) you will have to modify and specify the mount path in the docker compose backend volumes  `<your_mount_path>/input:/code/share` to your own path. 
+	Make sure the .env file is available in the application root directory. DB_PASSWORD and DJANGO_KEY variables should be specify. To create the env file run `nano .env` and then paste 
+        ```
+           DB_PASSWORD=your_secure_db_password_here
+           DJANGO_KEY=your_secure_django_secret_key_here
+        ```
 
-	Finally, execute `./up.sh` to run the containers and `./down.sh` to stop and remove them. Note: you might need priviledges to perform this (e.g., `sudo`) 
+        Note: To generate a strong Django key, you can use `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`	
+
+	Execute `./up.sh` to run the containers and `./down.sh` to stop and remove them. 
 	
-	
+ 	Important: if you are running the application for the first time on your server make sure you create a Django superuser:
+	1.  Run the containers `./up.sh` 
+	2.  Access deft-backend-1 container `docker exec -it deft-backend-1 bash`
+	3.  Navigate to Django directory `cd /code/backend`
+	4.  Creare superuser `python manage.py createsuperuser`. 
+	5.  Make sure you update the sysconfig.yml file in your root directory to align with the username and passowrd specify in this step.
+
+	Note: If you want to delete exisiting volumes to have a fresh start, including configuration settings from DB/Django run `docker-compose -f deft.yml -p deft down -v --remove-orphans` instead of `./down.sh`.
 
 ### Running Your First Case: DEMO
 
@@ -54,19 +67,19 @@ This version comes with a demo datset to test the application. The public input 
 1. #### Configuration settings
 	Navigate to the `demo` folder. There are two files  `config.yml` and  `sysconfig.yml`. Both are ready to be used when running the tool locally (on your server)
 
-	If you want to run the tool remotely (on your local laptop) in the `config.yml` you need to change `sync_type` from 'local' to 'remote_share'. In addition, in `sysconfig.yml` you need to change the `hostname`. 
+	If you want to run the tool remotely (on your local laptop) in the `config.yml` you need to change `sync_type` from 'local' to 'remote_share'. In addition, in `sysconfig.yml` you need to change the `hostname` and specify the mount path (See step 3 in the installation process). 
 
-	Note: Username and password should not be changed. 
+	Important: If it's the first time running the demo you need to import the clean initial database. From the project root, navigate to db_scripts and run: `./import_clean_db.sh` this will import the clean-2024.sql with default configuration values (e.g., techonologies, weather variables, etc)
 
 2. #### Running the tool locally (on your server)
 
 	You need to access the docker container running this command `docker exec -it deft-backend-1 bash`. 
 	
-	Make sure that the input data has been correctly transferred to the `cd backend/demo/input` folder inside the container. Run `docker cp /home/Climate-RiSc-Tool/demo/input/ deft-backend-1:/code/backend/demo/ `
+	Make sure that the input data has been correctly transferred to the `cd backend/demo/input` folder inside the container. Run `docker cp /home/Risk-Screening-Tool/demo/input/ deft-backend-1:/code/backend/demo/ `
 
 	Finally, run the case executing `python demo.py` in the demo folder within the container.
 
-	Solution will appear in the container `backend/demo/output` folder. You can export this running `docker cp deft-backend-1:/code/backend/demo/output /home/Climate-RiSc-Tool/demo/`
+	Solution will appear in the container `backend/demo/output` folder. You can export this running `docker cp deft-backend-1:/code/backend/demo/output /home/Risk-Screening-Tool/demo/`
 
 3. #### Running the tool remotely (on your local computer)
 	
