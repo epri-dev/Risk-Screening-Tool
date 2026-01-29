@@ -8,13 +8,37 @@ Climate RiSc was developed as part of the EPRI Resource Adequacy Iniatiave and C
 
 These instruction will help you to deploy RiSc on a remote/enterpise server and run a demo case. See the Software Manual for more detailed information including screenshots.
 
-### Installation
+### WSL/Linux VM Configuration
+This set of prerequisites will allow users to set-up a WSL remote connection from their Windows machine. Make sure you have installed:
+- VSCode: For more information: https://code.visualstudio.com/
+- WSL: Type ‘wsl —install’ via powershell (if not installed already).It will be set to WSL 2 by default. For more information: https://learn.microsoft.com/en-us/windows/wsl/install. Then, install WSL extension in VSCode. 
+- Windows 11
+
+Note: User can decide to set-up an on-premise VM to handle powerful simulation with RiSc Tool. On-premise VMs should work on internal networks preventing data to be exposed outside of their network.
+
+1. #### Create a new distro and connect to it:
+   - Go to WSL extension (Remote Explorer) and add a new distro (WSL target menu; click on "+"): Install Ubuntu 24.04. Note: Users can use another distribution environment (i.e., SUSE Linux Enterprise 16)
+   - Create you user account (user and password)
+   - In WSL target menu, you should see your Ubuntu distro and connect to it ("Connect in Current Window", click on "->"). This will open a new window, you are now under your newly created Linux environment. 
+	
+2. ####	Create a project and clone RiSc Tool
+   - Get sudo rights typing `sudo su` this will ask for user account credentials created in step 1.
+   - Create a working directory within your Linux terminal (you should have been able to connect to your distro) where you want to clone your repo: `mkdir RiSc_demo`
+3. #### Install docker
+   ```
+   sudo apt-get update
+   sudo apt-get install -y docker.io
+   sudo apt-get install docker-compose -y
+   ```
+   make sure installation is succesful typing: `docker --version`
+   
+### RiSc Tool Installation
 
 1. #### Clone/download this repository onto your server.
 
-	Get Git installed on your server.
+	Make sure Git is installed on your server.
 
-	Navigate to a folder on your server where you want to place the tool. 
+	Navigate to a folder on your server where you want to place the tool (Go to Step 2 in WSL Configuration). 
 
 	Enter the following command from a terminal/prompt to 'clone' the repo and download it to your computer:
 	```
@@ -22,6 +46,8 @@ These instruction will help you to deploy RiSc on a remote/enterpise server and 
 	```
 	When cloning a repo with 'git clone', if you do not specify a new directory as the last argument (as shown above),
 	it will be named `Risk-Screening-Tool`. Alternatively, you can specify this and name it as you please.
+
+	Make sure the docker image file (.tar file) is correctly cloned. As it is a large file (~125MB), you need to handle correctly LFS in Git. Otherwise, you can download the file manually by clicking in "Dowload raw file" here https://github.com/epri-dev/Risk-Screening-Tool/blob/main/risctool_docker.tar. If you are using WSL this can be transfer easily to the VM typing `\\wsl$` in your file explorer. Then navigate to the folder where you clone your RiSc repository within you Linux distribution. In case you decided to set-up your own Linux VM (no WSL), set-up a mount correctly between your Linux VM and Windows to transfer files.   
 
 	Create the docker volumes in the Risk-Screening-Tool root directory and make sure your files have all permissions:
 	```
@@ -32,17 +58,17 @@ These instruction will help you to deploy RiSc on a remote/enterpise server and 
 
 2. #### Pull and load the docker image
 
-	Get docker installed on your server. 
+	Get docker installed on your server (Go to Step 3 in WSL Configuration). 
 	
-	When risctool docker image is provided as .tar file in this repo. run the command: `docker load -i risctool_docker.tar`. 
+	When risctool docker image is provided as .tar file (Go to previous Step), run the command: `docker load -i risctool_docker.tar`. 
 
-	If the docker image is provided through a public registry run docker `docker pull risctool:1.0`. If no tag is specified, Docker will pull the latest tag by default.
+	If the docker image is provided through a registry:
+		1. login into docker registry: `docker login <registry-name>.azurecr.io`. It will ask you yto introduce registry credentials. 
+   		2. run `docker pull <registry>.azurecr.io/<repository>:<tag>`.
+  		3. verify that the image is loaded `docker images`.
+	Note: You need to have sudo privileges (type `sudo su`) to run docker commands including pulling and running docker images. 
 
-	Finally verity that the image is loaded `docker images`.
-
-	Note: You might you need must have privileges (e.g., sudo in bash) to run docker commands including pulling and running docker images. 
-
-3. #### Run the application
+4. #### Run the application
 	
 	Docker compose file `deft.yml` contain all the required configuration settings to run the containers. However, to run the tool remotly (otherwise comment this line using #) you will have to modify and specify the mount path in the docker compose backend volumes  `<your_mount_path>/input:/code/share` to your own path. 
 
@@ -51,19 +77,19 @@ These instruction will help you to deploy RiSc on a remote/enterpise server and 
 	DB_PASSWORD=your_secure_db_password_here
 	DJANGO_KEY=your_secure_django_secret_key_here
 	```
+    Note: You can also transfer .env file from windows using `\\wsl$` or a mount (Go to Section RiSc Tool Installation, Step 1)
 
-	Note: To generate a strong Django key, you can use `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`	
+    Important: Make sure you update the sysconfig.yml file in your working directory `demo/input/` to align with the username and passowrd specify in this step.
 
-	Execute `./up.sh` to run the containers and `./down.sh` to stop and remove them. 
-	
-	Important: if you are running the application for the first time on your server make sure you create a Django superuser:
-	1.  Run the containers `./up.sh` 
-	2.  Access deft-backend-1 container `docker exec -it deft-backend-1 bash`
-	3.  Navigate to Django directory `cd /code/backend`
-	4.  Creare superuser `python manage.py createsuperuser`. 
-	5.  Make sure you update the sysconfig.yml file in your root directory to align with the username and passowrd specify in this step.
+    In your terminal use `tmux` instead of linux `bash` to work with multiple bash sessions. Execute `./up.sh` to run the containers and `./down.sh` to stop and remove them. Then, create a new bash session `ctrl + b + c` to keep executing commands (while RiSc Tool is up and running). To switch across bash session use `ctrl + b + number of the session (0, 1, 2,...)`
 
-	Note: If you want to delete exisiting volumes to have a fresh start, including configuration settings from DB/Django run `docker-compose -f deft.yml -p deft down -v --remove-orphans` instead of `./down.sh`.
+   	Note: If you want to delete exisiting configuration to have a fresh start, including configuration settings from DB/Django run `docker-compose -f deft.yml -p deft down -v --remove-orphans` instead of `./down.sh`.
+
+    You can create your own Django superuser:
+	1.  Access deft-backend-1 container `docker exec -it deft-backend-1 bash`
+	2.  Navigate to Django directory `cd /code/backend`
+	3.  Creare superuser `python manage.py createsuperuser`.
+	4.  To generate a strong Django key, you can use `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`
 
 ### Running Your First Case: DEMO
 
@@ -76,22 +102,22 @@ This version comes with a demo datset to test the application. The public input 
 
 	Important: If it's the first time running the demo you need to import the clean initial database. From the project root run: `./db_scripts/import_clean_db.sh` this will import the clean-2024.sql with default configuration values (e.g.,weather variables, etc). Note: Some tables might already exist raising an error message
 
-2. #### Running the tool locally (on your server)
+2. #### Running the tool locally (on your VM)
 
 	All input data (Risk-Screening-Tool/demo/input) and configuration settings (Risk-Screening-Tool/demo/config and sysconfig.yml) need to be imported to the docker container. Use `nano` to modify configuration files as required.
 	
 	To transfer them inside the container run:
 	```
-	docker cp demo/input/ deft-backend-1:/code/backend/demo/ 
-	docker cp demo/config.yml deft-backend-1:/code/backend/demo/ && docker cp demo/sysconfig.yml deft-backend-1:/code/backend/demo/
+	docker cp demo/input/ deft_backend_1:/code/backend/demo/ 
+	docker cp demo/config.yml deft_backend_1:/code/backend/demo/ && docker cp demo/sysconfig.yml deft_backend_1:/code/backend/demo/
 	```
-	Access the docker container running this command `docker exec -it deft-backend-1 bash` and make sure data has been correctly transferred using `cd /backend/demo/ && ls -lp`
+	Access the docker container running this command `docker exec -it deft_backend_1 bash` and make sure data has been correctly transferred using `cd /backend/demo/ && ls -lp`
 	
 	To run a case execute `python demo.py` in the /code/backend/demo folder within the container.
 
-	Solution will appear in the container `backend/demo/output` folder. You can export this running `docker cp deft-backend-1:/code/backend/demo/output /home/Risk-Screening-Tool/demo/`
+	Solution will appear in the container `backend/demo/output` folder. You can export this running `docker cp deft_backend_1:/code/backend/demo/output /home/Risk-Screening-Tool/demo/`
 
-3. #### Running the tool remotely (on your local computer)
+3. #### Running the tool remotely (from your local computer)
 	
 	After changing configuration settings accordingly as decribed in step 1 and configure the mount (heavy files are transferred through this channel).
 	
